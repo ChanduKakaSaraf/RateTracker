@@ -5,7 +5,7 @@ import importlib
 
 def get_active_jewellers(cursor):
     query = f"""
-        SELECT id, jeweller_name, url, template_type
+        SELECT id, jeweller_name, url, template_type, rate_updated
         FROM {TABLES['jeweller_master']}
         WHERE is_active = 'Y'
     """
@@ -21,18 +21,22 @@ def insert_rates(cursor, db, jeweller_id, items):
         VALUES (%s, %s, %s, %s)
     """
 
+    if isinstance(items, dict):
+        items = items.get("rates", [])
+
     values = [
         (jeweller_id, i["purity_text"], i["purity"], i["rate"])
-        for i in items
+        for i in items or []
     ]
 
-    cursor.executemany(query, values)
+    if values:
+        cursor.executemany(query, values)
     db.commit()
 
 
 
 def process_jeweller(cursor, db, jeweller):
-    jeweller_id, name, url, template_type = jeweller
+    jeweller_id, name, url, template_type, rate_updated = jeweller
 
     print(f"Processing: {name}")
 
@@ -40,13 +44,18 @@ def process_jeweller(cursor, db, jeweller):
         module_name = f"templates.template{template_type}"
         scraper = importlib.import_module(module_name)
 
-        results = scraper.scrape(url)
+        results = scraper.scrape(url, rate_updated)
 
-        if not results:
+        if isinstance(results, dict):
+            items = results.get("rates", [])
+        else:
+            items = results
+
+        if not items:
             print(f"No data for {name}")
             return
 
-        insert_rates(cursor, db, jeweller_id, results)
+        insert_rates(cursor, db, jeweller_id, items)
 
     except Exception as e:
         print(f"Error for {name}: {e}")
