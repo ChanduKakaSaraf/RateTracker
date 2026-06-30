@@ -14,16 +14,17 @@ def scrape(url, rate_updated):
     try:
         update_time = None
 
-        update_time_node = tree.xpath('//*[@id="update-time"]/text()')
+        update_time_node = tree.xpath('//*[@class="sc-dtBdUo jhbdXm"]/text()')
 
         if update_time_node:
             update_time = update_time_node[0].strip()
-
+        
             if rate_updated == update_time:
                 return {
                     "rates": [],
                     "update_time": update_time
                 }
+            
 
         nodes = tree.xpath("/html/body/div[1]/div[1]/div/div[3]/div/a[3]/div/div[2]/ul/li")
 
