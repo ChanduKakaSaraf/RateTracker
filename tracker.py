@@ -16,7 +16,7 @@ def get_active_jewellers(cursor):
 
 def insert_rates(cursor, db, jeweller_id, items, update_time):
     query = f"""
-        INSERT INTO {TABLES['metal_rate']}
+        INSERT IGNORE INTO {TABLES['metal_rate']}
         (jeweller_id, purity_text, purity, rate)
         VALUES (%s, %s, %s, %s)
     """

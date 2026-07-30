@@ -1,58 +1,99 @@
 import requests
-from lxml import html
-from utils.helper import extract_purity
+from bs4 import BeautifulSoup
+from datetime import datetime
 import re
 
 
-
 def scrape(url, rate_updated):
-    headers = {"User-Agent": "Mozilla/5.0"}
-    response = requests.get(url, headers=headers)
-
-    tree = html.fromstring(response.content)
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/138.0.0.0 Safari/537.36"
+        )
+    }
 
     try:
+        response = requests.get(url, headers=headers, timeout=30)
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        # -------------------------------------
+        # Extract Update Time
+        # -------------------------------------
         update_time = None
 
-        update_time_node = tree.xpath('//*[@class="sc-dtBdUo jhbdXm"]/text()')
+        date_div = soup.select_one("div.metal-ticker-date")
 
-        if update_time_node:
-            update_time = update_time_node[0].strip()
-        
-            if rate_updated == update_time:
-                return {
-                    "rates": [],
-                    "update_time": update_time
-                }
-            
+        if date_div:
+            text = date_div.get_text(" ", strip=True)
 
-        nodes = tree.xpath("/html/body/div[1]/div[1]/div/div[3]/div/a[3]/div/div[2]/ul/li")
+            text = re.sub(
+                r"Rates\s+as\s+on\s*",
+                "",
+                text,
+                flags=re.IGNORECASE
+            ).strip()
 
+            try:
+                update_time = datetime.strptime(
+                    text,
+                    "%d %b %Y"
+                ).strftime("%d/%m/%Y")
+            except ValueError:
+                update_time = text
+
+        # If rates already processed
+        if update_time and rate_updated == update_time:
+            return {
+                "rates": [],
+                "update_time": update_time
+            }
+
+        # -------------------------------------
+        # Extract Rates
+        # -------------------------------------
         results = []
 
-        for node in nodes:
-            full_text = node.text_content().strip()
+        ticker = soup.select("div.metal-ticker-track span")
 
-            purity_text = re.sub(r"₹.*", "", full_text).strip()
+        for item in ticker:
 
-            rate_text = node.xpath(".//span/text()")
-            if not rate_text:
+            text = item.get_text(" ", strip=True)
+
+            if ":" not in text:
                 continue
 
-            raw_rate = rate_text[0]
-            clean_rate = re.sub(r"[^\d.]", "", raw_rate)
+            metal, price = text.split(":", 1)
 
-            if not clean_rate:
+            metal = metal.strip()
+
+            price = re.sub(r"[₹,]", "", price).strip()
+            price = price.split(".")[0]
+
+            purity = None
+
+            if "23.50K" in metal:
+                purity = "24K"
+            elif re.search(r"\b23K\b", metal):
+                purity = "23K"
+            elif "22K HM" in metal:
+                purity = "22K"
+            elif re.search(r"\b18K\b", metal):
+                purity = "18K"
+            elif "Silver" in metal:
+                purity = "Silver"
+            elif "Platinum" in metal:
+                purity = "Platinum"
+
+            if not purity:
                 continue
-
-            rate = float(clean_rate)
-
-            purity = extract_purity(purity_text)
 
             results.append({
                 "purity": purity,
-                "purity_text": purity_text,
-                "rate": rate
+                "purity_text": metal,
+                "rate": float(price)
             })
 
         return {
@@ -61,15 +102,7 @@ def scrape(url, rate_updated):
         }
 
     except Exception as e:
-        print(f"Template1 Error: {e}")
-        return {
-            "rates": [],
-            "update_time": None
-        }
-
-
-    except Exception as e:
-        print(f"Template1 Error: {e}")
+        print(f"JBJewellers Error: {e}")
         return {
             "rates": [],
             "update_time": None

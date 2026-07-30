@@ -40,17 +40,17 @@ def scrape(url, rate_updated):
         if nodes:
             raw_text = nodes[0].strip()
 
-            match = re.search(
-                r"(\d{2}/\d{2}/\d{4} \d{2}:\d{2} ?[ap]m)",
-                raw_text,
-                re.IGNORECASE
-            )
+            # match = re.search(
+            #     r"(\d{2}/\d{2}/\d{4} \d{2}:\d{2} ?[ap]m)",
+            #     raw_text,
+            #     re.IGNORECASE
+            # )
 
-            if match:
-                dt = datetime.strptime(match.group(1), "%d/%m/%Y %I:%M %p")
-                update_time = dt.strftime("%Y-%m-%d %H:%M:%S")
+            # if match:
+            #     dt = datetime.strptime(match.group(1), "%d/%m/%Y %I:%M %p")
+            #     update_time = dt.strftime("%Y-%m-%d %H:%M:%S")
 
-        print("UPDATE TIME:", update_time)
+        print("UPDATE TIME:", raw_text)
 
         # ✅ Skip if no change
         if update_time and update_time == rate_updated:
